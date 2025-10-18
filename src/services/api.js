@@ -17,6 +17,9 @@ export const fetchTimeSpending = async () => {
 };
 
 export const fetchCards = async (status) => {
-  const response = await fetch(`/statistic/cards/${status}`);
+  const response = await fetch(`/statistic/cards/{status}?status_t=${status}`);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
   return response.json();
 };

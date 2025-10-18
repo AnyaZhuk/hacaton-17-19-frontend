@@ -27,7 +27,7 @@ const CollapsibleStats = () => {
       const allCount = await fetchStatisticCount('all');
       setTotalRequests(allCount);
 
-      const solvedCount = await fetchStatisticCount('solved');
+      const solvedCount = await fetchStatisticCount('closed');
       setResolvedByAI(solvedCount);
 
       if (allCount > 0) {

@@ -49,7 +49,7 @@ function StatisticsPage() {
       const allCount = await fetchStatisticCount('all');
       setTotalCount(allCount);
 
-      const solvedCount = await fetchStatisticCount('solved');
+      const solvedCount = await fetchStatisticCount('closed');
       setResolvedCount(solvedCount);
 
       if (allCount > 0) {
