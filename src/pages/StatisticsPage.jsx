@@ -71,7 +71,7 @@ function StatisticsPage() {
       allTickets.forEach(ticket => {
         categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
 
-        if (ticket.status === 'solved' && ticket.resolved_at) {
+        if (ticket.status === 'closed' && ticket.resolved_at) {
           eventsList.push({ type: 'success', text: `Тикет #${ticket.dialog_id} решен автоматически.`, time: formatTimeAgo(ticket.resolved_at) });
           toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
         } else if (ticket.status === 'escalated') {
