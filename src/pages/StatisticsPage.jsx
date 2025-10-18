@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
+
 const mockKpi = {
   total: '12,834',
   resolvedByAINumber: '11,167', 
-  resolvedByAIPercent: '(87%)',  
+  resolvedByAIPercent: '(87%)', 
   avgTime: '1м 15с',
 };
 const mockCategories = [ { name: 'Сброс пароля', value: 4230 }, { name: 'Доступ к VPN', value: 2105 }, { name: 'Настройка ПО', value: 1890 }, { name: 'Заказ оборудования', value: 1520 }, { name: '1C: Ошибки', value: 980 }, { name: 'Другое', value: 1109 }, ];
