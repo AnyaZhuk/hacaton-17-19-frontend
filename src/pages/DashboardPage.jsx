@@ -32,7 +32,7 @@ function DashboardPage() {
         }
       })));
 
-      const inProgress = await fetchCards('in_progress');
+      const inProgress = await fetchCards('active');
       setInProgressTickets(inProgress.map(t => ({
         id: `#${t.dialog_id}`,
         category: t.type,
