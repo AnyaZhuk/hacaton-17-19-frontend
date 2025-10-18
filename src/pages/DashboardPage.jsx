@@ -13,7 +13,7 @@ function DashboardPage() {
       <header className="flex justify-between items-center p-6 shrink-0">
         <h1 className="text-2xl font-bold">Дашборд автоматизации поддержки</h1>
         <button className="bg-indigo-600 hover:bg-indigo-700 px-5 py-2 rounded-lg font-semibold shadow-lg shadow-indigo-500/20 transform transition-transform hover:scale-105 active:scale-95">
-          🚀 Запустить поток обращений
+          Запустить поток обращений
         </button>
       </header>
       
