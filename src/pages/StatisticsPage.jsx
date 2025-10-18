@@ -1,23 +1,21 @@
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { fetchStatisticCount, fetchTimeSpending, fetchCards } from './../services/api';
 
-const mockKpi = {
-  total: '12,834',
-  resolvedByAINumber: '11,167', 
-  resolvedByAIPercent: '(87%)', 
-  avgTime: '1м 15с',
+const KpiCard = ({ title, value, highlight }) => {
+  const isHighlighted = highlight === 'red' || highlight === 'green';
+  const borderColor = highlight === 'red' ? 'border-red-700/50' : 'border-green-700/50';
+  const textColor = highlight === 'red' ? 'text-red-400' : 'text-green-400';
+
+  return (
+    <div className={`bg-slate-800/50 p-6 rounded-xl border w-full transition-all duration-300 ${isHighlighted ? borderColor : 'border-slate-700/50'}`}>
+      <p className="text-sm text-gray-400">{title}</p>
+      <p className={`text-4xl font-bold mt-1 flex items-baseline truncate ${isHighlighted ? textColor : 'text-white'}`}>
+        {value}
+      </p>
+    </div>
+  );
 };
-const mockCategories = [ { name: 'Сброс пароля', value: 4230 }, { name: 'Доступ к VPN', value: 2105 }, { name: 'Настройка ПО', value: 1890 }, { name: 'Заказ оборудования', value: 1520 }, { name: '1C: Ошибки', value: 980 }, { name: 'Другое', value: 1109 }, ];
-const mockToolUsage = [ { name: 'reset_password', count: 4100 }, { name: 'check_vpn_status', count: 1800 }, { name: 'get_order_status', count: 1450 }, { name: 'grant_access_1c', count: 850 }, ];
-const mockEvents = [ { type: 'success', text: 'Тикет #82543 решен автоматически.', time: '1 мин назад' }, { type: 'info', text: 'Вызван инструмент reset_password для пользователя Ivanov I.I.', time: '2 мин назад' }, { type: 'warning', text: 'Диалог #82541 эскалирован на оператора (низкая уверенность).', time: '5 мин назад' }, { type: 'success', text: 'Тикет #82542 решен автоматически.', time: '7 мин назад' }, { type: 'info', text: 'Получен новый тикет #82544.', time: '8 мин назад' }, { type: 'success', text: 'Тикет #82545 решен автоматически.', time: '10 мин назад' }, { type: 'warning', text: 'Диалог #82546 эскалирован на оператора.', time: '12 мин назад' }, { type: 'info', text: 'Получен новый тикет #82547.', time: '15 мин назад' }, { type: 'success', text: 'Тикет #82548 решен автоматически.', time: '18 мин назад' } ];
-
-const KpiCard = ({ title, value }) => (
-  <div className="bg-slate-800/50 p-6 rounded-xl border border-slate-700/50 w-full">
-    <p className="text-sm text-gray-400">{title}</p>
-    <p className="text-4xl font-bold text-white mt-1 flex items-baseline">
-      {value}
-    </p>
-  </div>
-);
 
 const ChartCard = ({ title, children, className = '' }) => (
   <div className={`bg-slate-800/30 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 flex flex-col ${className}`}>
@@ -27,8 +25,107 @@ const ChartCard = ({ title, children, className = '' }) => (
 );
 
 function StatisticsPage() {
-  const maxCategoryValue = Math.max(...mockCategories.map(c => c.value));
-  const maxToolUsage = Math.max(...mockToolUsage.map(t => t.count));
+  const PROBLEM_THRESHOLD_PERCENT = 50;
+
+  const [totalCount, setTotalCount] = useState('...');
+  const [resolvedCount, setResolvedCount] = useState('...');
+  const [resolvedPercent, setResolvedPercent] = useState('...');
+  const [avgTime, setAvgTime] = useState('...');
+  const [mockCategories, setMockCategories] = useState([]);
+  const [mockToolUsage, setMockToolUsage] = useState([]);
+  const [mockEvents, setMockEvents] = useState([]);
+  const [mostFrequentCategory, setMostFrequentCategory] = useState('N/A');
+  const [frequentCategoryDifference, setFrequentCategoryDifference] = useState('');
+  const [isCategoryProblematic, setIsCategoryProblematic] = useState(false);
+
+  useEffect(() => {
+    fetchStatistics();
+    const interval = setInterval(fetchStatistics, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchStatistics = async () => {
+    try {
+      const allCount = await fetchStatisticCount('all');
+      setTotalCount(allCount);
+
+      const solvedCount = await fetchStatisticCount('solved');
+      setResolvedCount(solvedCount);
+
+      if (allCount > 0) {
+        setResolvedPercent(`(${(solvedCount / allCount * 100).toFixed(0)}%)`);
+      } else {
+        setResolvedPercent('(0%)');
+      }
+
+      const timeSpending = await fetchTimeSpending();
+      const minutes = Math.floor(timeSpending / 60);
+      const seconds = Math.round(timeSpending % 60);
+      setAvgTime(`${minutes}м ${seconds}с`);
+
+      const allTickets = await fetchCards('all');
+      const categoriesMap = {};
+      const toolUsageMap = {};
+      const eventsList = [];
+
+      allTickets.forEach(ticket => {
+        categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
+
+        if (ticket.status === 'solved' && ticket.resolved_at) {
+          eventsList.push({ type: 'success', text: `Тикет #${ticket.dialog_id} решен автоматически.`, time: formatTimeAgo(ticket.resolved_at) });
+          toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
+        } else if (ticket.status === 'escalated') {
+          eventsList.push({ type: 'warning', text: `Диалог #${ticket.dialog_id} эскалирован на оператора.`, time: formatTimeAgo(ticket.created_at) });
+        } else {
+          eventsList.push({ type: 'info', text: `Получен новый тикет #${ticket.dialog_id}.`, time: formatTimeAgo(ticket.created_at) });
+        }
+      });
+
+      const sortedCategories = Object.entries(categoriesMap)
+        .sort(([, countA], [, countB]) => countB - countA)
+        .map(([name, value]) => ({ name, value }));
+
+      if (sortedCategories.length > 0) {
+        setMostFrequentCategory(sortedCategories[0].name);
+        if (sortedCategories.length > 1) {
+          const diff = ((sortedCategories[0].value - sortedCategories[1].value) / sortedCategories[1].value) * 100;
+          setFrequentCategoryDifference(`+${diff.toFixed(0)}%`);
+          setIsCategoryProblematic(diff >= PROBLEM_THRESHOLD_PERCENT);
+        } else {
+          setFrequentCategoryDifference('единственная');
+          setIsCategoryProblematic(false);
+        }
+      } else {
+        setMostFrequentCategory('N/A');
+        setFrequentCategoryDifference('');
+        setIsCategoryProblematic(false);
+      }
+
+      setMockCategories(sortedCategories);
+      setMockToolUsage(Object.entries(toolUsageMap).map(([name, count]) => ({ name, count })));
+      setMockEvents(eventsList.sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10));
+
+    } catch (error) {
+      console.error('Ошибка при загрузке подробной статистики:', error);
+    }
+  };
+
+  const formatTimeAgo = (isoString) => {
+    if (!isoString) return 'Сейчас';
+    const date = new Date(isoString);
+    const now = new Date();
+    const seconds = Math.round((now - date) / 1000);
+    if (seconds < 60) return `${seconds} сек назад`;
+    const minutes = Math.round(seconds / 60);
+    if (minutes < 60) return `${minutes} мин назад`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} час назад`;
+    const days = Math.round(hours / 24);
+    return `${days} дн назад`;
+  };
+
+  const maxCategoryValue = Math.max(...mockCategories.map(c => c.value), 1);
+  const maxToolUsage = Math.max(...mockToolUsage.map(t => t.count), 1);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-gray-900 text-white">
@@ -41,19 +138,31 @@ function StatisticsPage() {
 
       <div className="flex-1 flex flex-row overflow-hidden">
         <aside className="w-72 shrink-0 p-6 border-r border-slate-800 flex flex-col gap-6">
-          <KpiCard title="Всего обращений" value={mockKpi.total} />
-          <KpiCard 
-            title="Решено AI" 
+          <KpiCard title="Всего обращений" value={totalCount} />
+          <KpiCard
+            title="Решено AI"
             value={
               <>
-                {mockKpi.resolvedByAINumber}
+                {resolvedCount}
                 <span className="text-2xl font-semibold text-green-400 ml-2">
-                  {mockKpi.resolvedByAIPercent}
+                  {resolvedPercent}
                 </span>
               </>
-            } 
+            }
           />
-          <KpiCard title="Среднее время решения" value={mockKpi.avgTime} />
+          <KpiCard title="Среднее время решения" value={avgTime} />
+          <KpiCard
+            title="Самая частая категория"
+            value={
+              <>
+                {mostFrequentCategory}
+                <span className={`text-xl font-semibold ml-2 ${isCategoryProblematic ? 'text-red-300' : 'text-green-300'}`}>
+                  {frequentCategoryDifference}
+                </span>
+              </>
+            }
+            highlight={isCategoryProblematic ? 'red' : 'green'}
+          />
         </aside>
 
         <main className="flex-1 flex flex-col gap-6 p-6 overflow-hidden">
@@ -65,7 +174,7 @@ function StatisticsPage() {
                     <div key={cat.name} className="flex items-center text-sm">
                       <span className="w-36 text-gray-400 truncate">{cat.name}</span>
                       <div className="flex-1 bg-slate-700 rounded-full h-4 mr-2">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full"
                           style={{ width: `${(cat.value / maxCategoryValue) * 100}%` }}
                         ></div>
@@ -76,7 +185,7 @@ function StatisticsPage() {
                 </div>
               </ChartCard>
             </div>
-            
+
             <div className="lg:col-span-1">
               <ChartCard title="Частота использования инструментов">
                 <div className="space-y-3 mt-2">
@@ -84,7 +193,7 @@ function StatisticsPage() {
                     <div key={tool.name} className="flex items-center text-sm">
                       <span className="w-36 text-gray-400 font-mono truncate">{tool.name}</span>
                       <div className="flex-1 bg-slate-700 rounded-full h-4 mr-2">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full"
                           style={{ width: `${(tool.count / maxToolUsage) * 100}%` }}
                         ></div>
