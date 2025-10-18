@@ -39,7 +39,7 @@ function DashboardPage() {
         summary: `Заявка по ${t.type}. Статус: ${t.status}`,
       })));
 
-      const resolved = await fetchCards('solved');
+      const resolved = await fetchCards('closed');
       setResolvedTickets(resolved.map(t => ({
         id: `#${t.dialog_id}`,
         category: t.type,
