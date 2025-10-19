@@ -65,15 +65,17 @@ const CollapsibleStats = () => {
                 .map(([name, value]) => ({name, value}));
 
             if (sortedCategories.length > 0) {
-                setMostFrequentCategory(sortedCategories[0].name);
-                if (sortedCategories.length > 1) {
-                    const diff = ((sortedCategories[0].value - sortedCategories[1].value) / sortedCategories[1].value) * 100;
-                    setFrequentCategoryDifference(`${diff.toFixed(0)}%`);
-                    setIsCategoryProblematic(diff >= PROBLEM_THRESHOLD_PERCENT);
-                } else {
-                    setFrequentCategoryDifference('единственная');
-                    setIsCategoryProblematic(false);
-                }
+              const totalCategorized = sortedCategories.reduce((sum, cat) => sum + cat.value, 0);
+
+              if (totalCategorized > 0) {
+                const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
+                setFrequentCategoryDifference(`${topCategoryPercent.toFixed(0)}%`);
+              } else {
+                setFrequentCategoryDifference('');
+              }
+
+              const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
+              setIsCategoryProblematic(topCategoryPercent >= PROBLEM_THRESHOLD_PERCENT);
             } else {
                 setMostFrequentCategory('N/A');
                 setFrequentCategoryDifference('');
