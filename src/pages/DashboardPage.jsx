@@ -11,43 +11,53 @@ function DashboardPage() {
     const [isSimulationRunning, setIsSimulationRunning] = useState(false);
 
     useEffect(() => {
-        fetchTickets();
-        const interval = setInterval(fetchTickets, 5000);
+        fetchTickets().catch(console.error);
+
+        const interval = setInterval(() => {
+            fetchTickets().catch(console.error);
+        }, 5000);
+
         return () => clearInterval(interval);
     }, []);
 
+    const truncate = (text, length) => {
+        if (!text) return '';
+        if (text.length <= length) return text;
+        return text.substring(0, length) + '...';
+    };
+
+    // Новая универсальная функция обработки данных
     const processTicketData = (ticket) => {
-        const {ml_result} = ticket;
+        const {ml_result, user_query} = ticket;
         const payload = ml_result?.payload || {};
 
         const baseInfo = {
             id: `#${ticket.id}`,
             category: ticket.type || 'N/A',
-            summary: payload.summary || `Заявка #${ticket.id}`,
-            userRequest: ml_result?.user_query || `Диалог #${ticket.id}`,
+            summary: truncate(user_query || `Заявка #${ticket.id}`, 100),
+            userRequest: user_query || `Диалог #${ticket.id}`,
         };
 
-        let aiAnalysis = {
-            confidence: 'N/A',
-            reason: 'N/A',
-            sources: [],
-            suggestedAction: 'N/A',
-            generatedResponse: 'N/A',
-        };
+        let aiAnalysis;
 
-        if (ml_result?.action_type === 'answer') {
+        if (ticket.status === 'closed' && ml_result) {
+            const bestSource = payload.sources?.[0];
             aiAnalysis = {
-                confidence: payload.sources && payload.sources.length > 0 ? `${(payload.sources[0].score * 100).toFixed(0)}%` : 'N/A',
+                confidence: bestSource ? `${(bestSource.score * 100).toFixed(0)}%` : 'N/A',
                 reason: 'Решено автоматически по базе знаний.',
-                sources: payload.sources?.map(s => s.filename.split('/').pop()) || [],
+                sources: bestSource ? [bestSource.filename.split('/').pop()] : [],
                 generatedResponse: payload.summary,
             };
-        } else if (ml_result?.action_type === 'escalate') {
+        } else if (ticket.status === 'escalated' && ml_result) {
             aiAnalysis = {
                 confidence: 'Низкая',
                 reason: payload.reason || 'Не найдено релевантного ответа в БЗ.',
                 sources: [],
                 suggestedAction: 'Требуется ручная обработка оператором.',
+            };
+        } else {
+            aiAnalysis = {
+                reason: 'AI анализирует обращение...',
             };
         }
 
@@ -77,7 +87,7 @@ function DashboardPage() {
                 await startSimulation();
             }
             setIsSimulationRunning(!isSimulationRunning);
-            fetchTickets();
+            await fetchTickets();
         } catch (error) {
             console.error('Ошибка при переключении симуляции:', error);
         }
