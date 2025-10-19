@@ -82,21 +82,21 @@ function StatisticsPage() {
         if (ticket.status === 'closed' && ticket.resolved_at) {
           eventsList.push({
             type: 'success',
-            text: `Тикет #${ticket.dialog_id} решен автоматически.`,
-            time: formatTimeAgo(ticket.resolved_at)
+            text: `Тикет #${ticket.id} решен автоматически.`,
+            time: new Date(ticket.resolved_at)
           });
           toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
         } else if (ticket.status === 'escalated') {
           eventsList.push({
             type: 'warning',
-            text: `Диалог #${ticket.dialog_id} эскалирован на оператора.`,
-            time: formatTimeAgo(ticket.created_at)
+            text: `Диалог #${ticket.id} эскалирован на оператора.`,
+            time: new Date(ticket.created_at)
           });
         } else {
           eventsList.push({
             type: 'info',
-            text: `Получен новый тикет #${ticket.dialog_id}.`,
-            time: formatTimeAgo(ticket.created_at)
+            text: `Получен новый тикет #${ticket.id}.`,
+            time: new Date(ticket.created_at)
           });
         }
       });
@@ -106,15 +106,17 @@ function StatisticsPage() {
         .map(([name, value]) => ({name, value}));
 
       if (sortedCategories.length > 0) {
-        setMostFrequentCategory(sortedCategories[0].name);
-        if (sortedCategories.length > 1) {
-          const diff = ((sortedCategories[0].value - sortedCategories[1].value) / sortedCategories[1].value) * 100;
-          setFrequentCategoryDifference(`${diff.toFixed(0)}%`);
-          setIsCategoryProblematic(diff >= PROBLEM_THRESHOLD_PERCENT);
+        const totalCategorized = sortedCategories.reduce((sum, cat) => sum + cat.value, 0);
+
+        if (totalCategorized > 0) {
+          const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
+          setFrequentCategoryDifference(`${topCategoryPercent.toFixed(0)}%`);
         } else {
-          setFrequentCategoryDifference('единственная');
-          setIsCategoryProblematic(false);
+          setFrequentCategoryDifference('');
         }
+
+        const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
+        setIsCategoryProblematic(topCategoryPercent >= PROBLEM_THRESHOLD_PERCENT);
       } else {
         setMostFrequentCategory('N/A');
         setFrequentCategoryDifference('');
@@ -123,7 +125,11 @@ function StatisticsPage() {
 
       setMockCategories(sortedCategories);
       setMockToolUsage(Object.entries(toolUsageMap).map(([name, count]) => ({name, count})));
-      setMockEvents(eventsList.sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10));
+      setMockEvents(eventsList
+        .sort((a, b) => b.time - a.time)
+        .slice(0, 10)
+        .map(event => ({...event, time: formatTimeAgo(event.time.toISOString())}))
+      );
 
     } catch (error) {
       console.error('Ошибка при загрузке подробной статистики:', error);
