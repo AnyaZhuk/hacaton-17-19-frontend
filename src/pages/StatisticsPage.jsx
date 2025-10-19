@@ -33,6 +33,7 @@ function StatisticsPage() {
   const [resolvedCount, setResolvedCount] = useState('...');
   const [resolvedPercent, setResolvedPercent] = useState('...');
   const [avgTime, setAvgTime] = useState('...');
+  const [economicBenefit, setEconomicBenefit] = useState('...');
   const [mockCategories, setMockCategories] = useState([]);
   const [mockToolUsage, setMockToolUsage] = useState([]);
   const [mockEvents, setMockEvents] = useState([]);
@@ -40,22 +41,19 @@ function StatisticsPage() {
   const [frequentCategoryDifference, setFrequentCategoryDifference] = useState('');
   const [isCategoryProblematic, setIsCategoryProblematic] = useState(false);
 
-  useEffect(() => {
-    fetchStatistics().catch(console.error);
-
-    const interval = setInterval(() => {
-      fetchStatistics().catch(console.error);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchStatistics = async () => {
-    try {
-      const allCount = await fetchStatisticCount('all');
-      setTotalCount(allCount);
+    const COST_PER_MINUTE = 21.7;
+    const AVG_MANUAL_RESOLUTION_TIME_MIN = 29;
 
-      const solvedCount = await fetchStatisticCount('closed');
+    try {
+      const [allCount, solvedCount, timeSpending, allTickets] = await Promise.all([
+        fetchStatisticCount('all'),
+        fetchStatisticCount('closed'),
+        fetchTimeSpending(),
+        fetchCards('all')
+      ]);
+
+      setTotalCount(allCount);
       setResolvedCount(solvedCount);
 
       if (allCount > 0) {
@@ -64,7 +62,6 @@ function StatisticsPage() {
         setResolvedPercent('(0%)');
       }
 
-      const timeSpending = await fetchTimeSpending();
       if (timeSpending === null || timeSpending === undefined) {
         setAvgTime('N/A');
       } else if (timeSpending < 1) {
@@ -75,7 +72,19 @@ function StatisticsPage() {
         setAvgTime(minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`);
       }
 
-      const allTickets = await fetchCards('all');
+      if (solvedCount > 0 && timeSpending !== null) {
+        const avgTimeAI_min = timeSpending / 60;
+        const savedMoney = (AVG_MANUAL_RESOLUTION_TIME_MIN - avgTimeAI_min) * solvedCount * COST_PER_MINUTE;
+
+        if (savedMoney > 1000) {
+          setEconomicBenefit(`${(savedMoney / 1000).toFixed(1)} тыс. ₽`);
+        } else {
+          setEconomicBenefit(`${savedMoney.toFixed(0)} ₽`);
+        }
+      } else {
+        setEconomicBenefit('0 ₽');
+      }
+
       const categoriesMap = {};
       const toolUsageMap = {};
       const eventsList = [];
@@ -83,6 +92,29 @@ function StatisticsPage() {
       allTickets.forEach(ticket => {
         if (ticket.type) {
           categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
+        }
+
+        if (ticket.status === 'closed' && ticket.resolved_at) {
+          eventsList.push({
+            type: 'success',
+            text: `Тикет #${ticket.id} решен автоматически.`,
+            time: new Date(ticket.resolved_at)
+          });
+          if (ticket.type) {
+            toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
+          }
+        } else if (ticket.status === 'escalated') {
+          eventsList.push({
+            type: 'warning',
+            text: `Диалог #${ticket.id} эскалирован на оператора.`,
+            time: new Date(ticket.created_at)
+          });
+        } else {
+          eventsList.push({
+            type: 'info',
+            text: `Получен новый тикет #${ticket.id}.`,
+            time: new Date(ticket.created_at)
+          });
         }
       });
 
@@ -92,7 +124,6 @@ function StatisticsPage() {
 
       if (sortedCategories.length > 0) {
         setMostFrequentCategory(sortedCategories[0].name);
-
         const totalCategorized = sortedCategories.reduce((sum, cat) => sum + cat.value, 0);
 
         if (totalCategorized > 0) {
@@ -116,7 +147,6 @@ function StatisticsPage() {
         .slice(0, 10)
         .map(event => ({...event, time: formatTimeAgo(event.time.toISOString())}))
       );
-
     } catch (error) {
       console.error('Ошибка при загрузке подробной статистики:', error);
     }
@@ -127,6 +157,7 @@ function StatisticsPage() {
     const date = new Date(isoString);
     const now = new Date();
     const seconds = Math.round((now - date) / 1000);
+    if (seconds < 2) return '1 сек назад';
     if (seconds < 60) return `${seconds} сек назад`;
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) return `${minutes} мин назад`;
@@ -135,6 +166,14 @@ function StatisticsPage() {
     const days = Math.round(hours / 24);
     return `${days} дн назад`;
   };
+
+  useEffect(() => {
+    fetchStatistics().catch(console.error);
+    const interval = setInterval(() => {
+      fetchStatistics().catch(console.error);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const maxCategoryValue = Math.max(...mockCategories.map(c => c.value), 1);
   const maxToolUsage = Math.max(...mockToolUsage.map(t => t.count), 1);
@@ -149,7 +188,7 @@ function StatisticsPage() {
       </header>
 
       <div className="flex-1 flex flex-row overflow-hidden">
-        <aside className="w-72 shrink-0 p-6 border-r border-slate-800 flex flex-col gap-6">
+        <aside className="w-80 shrink-0 p-6 border-r border-slate-800 flex flex-col gap-6">
           <KpiCard title="Всего обращений" value={totalCount}/>
           <KpiCard
             title="Решено AI"
@@ -175,6 +214,11 @@ function StatisticsPage() {
               </>
             }
             highlight={isCategoryProblematic ? 'red' : 'green'}
+          />
+          <KpiCard
+            title="Экономическая выгода"
+            value={economicBenefit}
+            highlight="green"
           />
         </aside>
 
