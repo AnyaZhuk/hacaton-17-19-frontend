@@ -1,14 +1,15 @@
-import { Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { fetchStatisticCount, fetchTimeSpending, fetchCards } from './../services/api';
+import {Link} from 'react-router-dom';
+import {useState, useEffect} from 'react';
+import {fetchStatisticCount, fetchTimeSpending, fetchCards} from './../services/api';
 
-const KpiCard = ({ title, value, highlight }) => {
+const KpiCard = ({title, value, highlight}) => {
   const isHighlighted = highlight === 'red' || highlight === 'green';
   const borderColor = highlight === 'red' ? 'border-red-700/50' : 'border-green-700/50';
   const textColor = highlight === 'red' ? 'text-red-400' : 'text-green-400';
 
   return (
-    <div className={`bg-slate-800/50 p-6 rounded-xl border w-full transition-all duration-300 ${isHighlighted ? borderColor : 'border-slate-700/50'}`}>
+    <div
+      className={`bg-slate-800/50 p-6 rounded-xl border w-full transition-all duration-300 ${isHighlighted ? borderColor : 'border-slate-700/50'}`}>
       <p className="text-sm text-gray-400">{title}</p>
       <p className={`text-4xl font-bold mt-1 flex items-baseline truncate ${isHighlighted ? textColor : 'text-white'}`}>
         {value}
@@ -17,8 +18,9 @@ const KpiCard = ({ title, value, highlight }) => {
   );
 };
 
-const ChartCard = ({ title, children, className = '' }) => (
-  <div className={`bg-slate-800/30 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 flex flex-col ${className}`}>
+const ChartCard = ({title, children, className = ''}) => (
+  <div
+    className={`bg-slate-800/30 backdrop-blur-sm rounded-xl border border-slate-700/50 p-6 flex flex-col ${className}`}>
     <h3 className="text-lg font-semibold text-white mb-4 shrink-0">{title}</h3>
     {children}
   </div>
@@ -31,6 +33,7 @@ function StatisticsPage() {
   const [resolvedCount, setResolvedCount] = useState('...');
   const [resolvedPercent, setResolvedPercent] = useState('...');
   const [avgTime, setAvgTime] = useState('...');
+  const [economicBenefit, setEconomicBenefit] = useState('...');
   const [mockCategories, setMockCategories] = useState([]);
   const [mockToolUsage, setMockToolUsage] = useState([]);
   const [mockEvents, setMockEvents] = useState([]);
@@ -38,18 +41,19 @@ function StatisticsPage() {
   const [frequentCategoryDifference, setFrequentCategoryDifference] = useState('');
   const [isCategoryProblematic, setIsCategoryProblematic] = useState(false);
 
-  useEffect(() => {
-    fetchStatistics();
-    const interval = setInterval(fetchStatistics, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   const fetchStatistics = async () => {
-    try {
-      const allCount = await fetchStatisticCount('all');
-      setTotalCount(allCount);
+    const COST_PER_MINUTE = 21.7;
+    const AVG_MANUAL_RESOLUTION_TIME_MIN = 29;
 
-      const solvedCount = await fetchStatisticCount('closed');
+    try {
+      const [allCount, solvedCount, timeSpending, allTickets] = await Promise.all([
+        fetchStatisticCount('all'),
+        fetchStatisticCount('closed'),
+        fetchTimeSpending(),
+        fetchCards('all')
+      ]);
+
+      setTotalCount(allCount);
       setResolvedCount(solvedCount);
 
       if (allCount > 0) {
@@ -58,41 +62,76 @@ function StatisticsPage() {
         setResolvedPercent('(0%)');
       }
 
-      const timeSpending = await fetchTimeSpending();
-      const minutes = Math.floor(timeSpending / 60);
-      const seconds = Math.round(timeSpending % 60);
-      setAvgTime(`${minutes}м ${seconds}с`);
+      if (timeSpending === null || timeSpending === undefined) {
+        setAvgTime('N/A');
+      } else if (timeSpending < 1) {
+        setAvgTime(`${(timeSpending * 1000).toFixed(0)} мс`);
+      } else {
+        const minutes = Math.floor(timeSpending / 60);
+        const seconds = (timeSpending % 60).toFixed(1);
+        setAvgTime(minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`);
+      }
 
-      const allTickets = await fetchCards('all');
+      if (solvedCount > 0 && timeSpending !== null) {
+        const avgTimeAI_min = timeSpending / 60;
+        const savedMoney = (AVG_MANUAL_RESOLUTION_TIME_MIN - avgTimeAI_min) * solvedCount * COST_PER_MINUTE;
+
+        if (savedMoney > 1000) {
+          setEconomicBenefit(`${(savedMoney / 1000).toFixed(1)} тыс. ₽`);
+        } else {
+          setEconomicBenefit(`${savedMoney.toFixed(0)} ₽`);
+        }
+      } else {
+        setEconomicBenefit('0 ₽');
+      }
+
       const categoriesMap = {};
       const toolUsageMap = {};
       const eventsList = [];
 
       allTickets.forEach(ticket => {
-        categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
+        if (ticket.type) {
+          categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
+        }
 
         if (ticket.status === 'closed' && ticket.resolved_at) {
-          eventsList.push({ type: 'success', text: `Тикет #${ticket.dialog_id} решен автоматически.`, time: formatTimeAgo(ticket.resolved_at) });
-          toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
+          eventsList.push({
+            type: 'success',
+            text: `Тикет #${ticket.id} решен автоматически.`,
+            time: new Date(ticket.resolved_at)
+          });
+          if (ticket.type) {
+            toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
+          }
         } else if (ticket.status === 'escalated') {
-          eventsList.push({ type: 'warning', text: `Диалог #${ticket.dialog_id} эскалирован на оператора.`, time: formatTimeAgo(ticket.created_at) });
+          eventsList.push({
+            type: 'warning',
+            text: `Диалог #${ticket.id} эскалирован на оператора.`,
+            time: new Date(ticket.created_at)
+          });
         } else {
-          eventsList.push({ type: 'info', text: `Получен новый тикет #${ticket.dialog_id}.`, time: formatTimeAgo(ticket.created_at) });
+          eventsList.push({
+            type: 'info',
+            text: `Получен новый тикет #${ticket.id}.`,
+            time: new Date(ticket.created_at)
+          });
         }
       });
 
       const sortedCategories = Object.entries(categoriesMap)
         .sort(([, countA], [, countB]) => countB - countA)
-        .map(([name, value]) => ({ name, value }));
+        .map(([name, value]) => ({name, value}));
 
       if (sortedCategories.length > 0) {
         setMostFrequentCategory(sortedCategories[0].name);
-        if (sortedCategories.length > 1) {
-          const diff = ((sortedCategories[0].value - sortedCategories[1].value) / sortedCategories[1].value) * 100;
-          setFrequentCategoryDifference(`+${diff.toFixed(0)}%`);
-          setIsCategoryProblematic(diff >= PROBLEM_THRESHOLD_PERCENT);
+        const totalCategorized = sortedCategories.reduce((sum, cat) => sum + cat.value, 0);
+
+        if (totalCategorized > 0) {
+          const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
+          setFrequentCategoryDifference(`${topCategoryPercent.toFixed(0)}%`);
+          setIsCategoryProblematic(topCategoryPercent >= PROBLEM_THRESHOLD_PERCENT);
         } else {
-          setFrequentCategoryDifference('единственная');
+          setFrequentCategoryDifference('');
           setIsCategoryProblematic(false);
         }
       } else {
@@ -102,9 +141,12 @@ function StatisticsPage() {
       }
 
       setMockCategories(sortedCategories);
-      setMockToolUsage(Object.entries(toolUsageMap).map(([name, count]) => ({ name, count })));
-      setMockEvents(eventsList.sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 10));
-
+      setMockToolUsage(Object.entries(toolUsageMap).map(([name, count]) => ({name, count})));
+      setMockEvents(eventsList
+        .sort((a, b) => b.time - a.time)
+        .slice(0, 10)
+        .map(event => ({...event, time: formatTimeAgo(event.time.toISOString())}))
+      );
     } catch (error) {
       console.error('Ошибка при загрузке подробной статистики:', error);
     }
@@ -115,6 +157,7 @@ function StatisticsPage() {
     const date = new Date(isoString);
     const now = new Date();
     const seconds = Math.round((now - date) / 1000);
+    if (seconds < 2) return '1 сек назад';
     if (seconds < 60) return `${seconds} сек назад`;
     const minutes = Math.round(seconds / 60);
     if (minutes < 60) return `${minutes} мин назад`;
@@ -123,6 +166,14 @@ function StatisticsPage() {
     const days = Math.round(hours / 24);
     return `${days} дн назад`;
   };
+
+  useEffect(() => {
+    fetchStatistics().catch(console.error);
+    const interval = setInterval(() => {
+      fetchStatistics().catch(console.error);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const maxCategoryValue = Math.max(...mockCategories.map(c => c.value), 1);
   const maxToolUsage = Math.max(...mockToolUsage.map(t => t.count), 1);
@@ -137,8 +188,8 @@ function StatisticsPage() {
       </header>
 
       <div className="flex-1 flex flex-row overflow-hidden">
-        <aside className="w-72 shrink-0 p-6 border-r border-slate-800 flex flex-col gap-6">
-          <KpiCard title="Всего обращений" value={totalCount} />
+        <aside className="w-80 shrink-0 p-6 border-r border-slate-800 flex flex-col gap-6">
+          <KpiCard title="Всего обращений" value={totalCount}/>
           <KpiCard
             title="Решено AI"
             value={
@@ -150,18 +201,24 @@ function StatisticsPage() {
               </>
             }
           />
-          <KpiCard title="Среднее время решения" value={avgTime} />
+          <KpiCard title="Среднее время решения" value={avgTime}/>
           <KpiCard
             title="Самая частая категория"
             value={
               <>
                 {mostFrequentCategory}
-                <span className={`text-xl font-semibold ml-2 ${isCategoryProblematic ? 'text-red-300' : 'text-green-300'}`}>
+                <span
+                  className={`text-xl font-semibold ml-2 ${isCategoryProblematic ? 'text-red-300' : 'text-green-300'}`}>
                   {frequentCategoryDifference}
                 </span>
               </>
             }
             highlight={isCategoryProblematic ? 'red' : 'green'}
+          />
+          <KpiCard
+            title="Экономическая выгода"
+            value={economicBenefit}
+            highlight="green"
           />
         </aside>
 
@@ -176,7 +233,7 @@ function StatisticsPage() {
                       <div className="flex-1 bg-slate-700 rounded-full h-4 mr-2">
                         <div
                           className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full"
-                          style={{ width: `${(cat.value / maxCategoryValue) * 100}%` }}
+                          style={{width: `${(cat.value / maxCategoryValue) * 100}%`}}
                         ></div>
                       </div>
                       <span className="font-semibold">{cat.value}</span>
@@ -195,7 +252,7 @@ function StatisticsPage() {
                       <div className="flex-1 bg-slate-700 rounded-full h-4 mr-2">
                         <div
                           className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full"
-                          style={{ width: `${(tool.count / maxToolUsage) * 100}%` }}
+                          style={{width: `${(tool.count / maxToolUsage) * 100}%`}}
                         ></div>
                       </div>
                       <span className="font-semibold">{tool.count}</span>
@@ -207,19 +264,21 @@ function StatisticsPage() {
           </div>
 
           <div className="flex-1 min-h-0">
-              <ChartCard title="Лента событий системы" className="h-full">
-                  <div className="flex-1 overflow-y-auto -mr-2 pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
-                    <ul className="space-y-3 mt-2 text-sm">
-                        {mockEvents.map((event, i) => (
-                            <li key={i} className="flex items-center">
-                                <span className={`mr-3 w-2 h-2 rounded-full ${event.type === 'success' ? 'bg-green-500' : event.type === 'warning' ? 'bg-red-500' : 'bg-blue-500'}`}></span>
-                                <span className="flex-1">{event.text}</span>
-                                <span className="text-gray-500">{event.time}</span>
-                            </li>
-                        ))}
-                    </ul>
-                  </div>
-              </ChartCard>
+            <ChartCard title="Лента событий системы" className="h-full">
+              <div
+                className="flex-1 overflow-y-auto -mr-2 pr-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800">
+                <ul className="space-y-3 mt-2 text-sm">
+                  {mockEvents.map((event, i) => (
+                    <li key={i} className="flex items-center">
+                      <span
+                        className={`mr-3 w-2 h-2 rounded-full ${event.type === 'success' ? 'bg-green-500' : event.type === 'warning' ? 'bg-red-500' : 'bg-blue-500'}`}></span>
+                      <span className="flex-1">{event.text}</span>
+                      <span className="text-gray-500">{event.time}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </ChartCard>
           </div>
         </main>
       </div>
