@@ -20,12 +20,15 @@ const TicketCard = ({ ticket, showAddToKbButton }) => {
           <h4 className="font-bold text-gray-400 mb-2">Запрос клиента:</h4>
           <p className="bg-slate-900/70 p-3 rounded whitespace-pre-wrap font-mono text-gray-300">{ticket.userRequest}</p>
           <h4 className="font-bold text-gray-400 mt-4 mb-2">Анализ и решение AI:</h4>
-          <div className="bg-slate-900/70 p-3 rounded font-mono space-y-2 text-gray-300">
-            <p><span className="text-cyan-400 font-semibold">Уверенность:</span> {ticket.aiAnalysis?.confidence}</p>
-            <p><span className="text-cyan-400 font-semibold">Вердикт:</span> {ticket.aiAnalysis?.reason || ticket.aiAnalysis?.executedAction}</p>
-            <p><span className="text-cyan-400 font-semibold">Источники:</span> {ticket.aiAnalysis?.foundArticles?.join(', ')}</p>
-            {ticket.aiAnalysis?.generatedResponse && <p><span className="text-cyan-400 font-semibold">Ответ:</span> {ticket.aiAnalysis.generatedResponse}</p>}
-          </div>
+            <div className="bg-slate-900/70 p-3 rounded font-mono space-y-2 text-gray-300">
+                <p><span className="text-cyan-400 font-semibold">Уверенность:</span> {ticket.aiAnalysis?.confidence}</p>
+                <p><span className="text-cyan-400 font-semibold">Вердикт:</span> {ticket.aiAnalysis?.reason}</p>
+                {ticket.aiAnalysis?.sources && ticket.aiAnalysis.sources.length > 0 &&
+                    <p><span className="text-cyan-400 font-semibold">Источники:</span> {ticket.aiAnalysis.sources.join(', ')}</p>
+                }
+                {ticket.aiAnalysis?.generatedResponse && <p><span className="text-cyan-400 font-semibold">Ответ:</span> {ticket.aiAnalysis.generatedResponse}</p>}
+                {ticket.aiAnalysis?.suggestedAction && <p><span className="text-cyan-400 font-semibold">Действие:</span> {ticket.aiAnalysis.suggestedAction}</p>}
+            </div>
           {showAddToKbButton && (
             <div className="mt-4 flex justify-end">
               <button
