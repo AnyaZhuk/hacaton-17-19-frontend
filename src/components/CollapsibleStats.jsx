@@ -102,7 +102,7 @@ const CollapsibleStats = () => {
       <div
         className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0'}`}>
         <div className="px-4 pb-4 border-t border-slate-700/50">
-          <div className="pt-4 grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="pt-4 grid grid-cols-1 md:grid-cols-5 gap-4">
             <StatCard title="Всего обращений" value={totalRequests}/>
             <StatCard title="Обработано AI" value={resolvedByAI} subValue={resolvedByAIPercent}/>
             <StatCard title="Требует внимания" value={needsAttention}/>
