@@ -41,8 +41,12 @@ function StatisticsPage() {
   const [isCategoryProblematic, setIsCategoryProblematic] = useState(false);
 
   useEffect(() => {
-    fetchStatistics();
-    const interval = setInterval(fetchStatistics, 5000);
+    fetchStatistics().catch(console.error);
+
+    const interval = setInterval(() => {
+      fetchStatistics().catch(console.error);
+    }, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -77,27 +81,8 @@ function StatisticsPage() {
       const eventsList = [];
 
       allTickets.forEach(ticket => {
-        categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
-
-        if (ticket.status === 'closed' && ticket.resolved_at) {
-          eventsList.push({
-            type: 'success',
-            text: `Тикет #${ticket.id} решен автоматически.`,
-            time: new Date(ticket.resolved_at)
-          });
-          toolUsageMap[`solve_${ticket.type}`] = (toolUsageMap[`solve_${ticket.type}`] || 0) + 1;
-        } else if (ticket.status === 'escalated') {
-          eventsList.push({
-            type: 'warning',
-            text: `Диалог #${ticket.id} эскалирован на оператора.`,
-            time: new Date(ticket.created_at)
-          });
-        } else {
-          eventsList.push({
-            type: 'info',
-            text: `Получен новый тикет #${ticket.id}.`,
-            time: new Date(ticket.created_at)
-          });
+        if (ticket.type) {
+          categoriesMap[ticket.type] = (categoriesMap[ticket.type] || 0) + 1;
         }
       });
 
@@ -106,17 +91,18 @@ function StatisticsPage() {
         .map(([name, value]) => ({name, value}));
 
       if (sortedCategories.length > 0) {
+        setMostFrequentCategory(sortedCategories[0].name);
+
         const totalCategorized = sortedCategories.reduce((sum, cat) => sum + cat.value, 0);
 
         if (totalCategorized > 0) {
           const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
           setFrequentCategoryDifference(`${topCategoryPercent.toFixed(0)}%`);
+          setIsCategoryProblematic(topCategoryPercent >= PROBLEM_THRESHOLD_PERCENT);
         } else {
           setFrequentCategoryDifference('');
+          setIsCategoryProblematic(false);
         }
-
-        const topCategoryPercent = (sortedCategories[0].value / totalCategorized) * 100;
-        setIsCategoryProblematic(topCategoryPercent >= PROBLEM_THRESHOLD_PERCENT);
       } else {
         setMostFrequentCategory('N/A');
         setFrequentCategoryDifference('');
