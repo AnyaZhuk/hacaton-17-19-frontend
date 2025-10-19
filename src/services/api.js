@@ -1,9 +1,9 @@
 export const startSimulation = async () => {
-  await fetch('/simulate/start', { method: 'POST' });
+  await fetch('/simulate/start', {method: 'POST'});
 };
 
 export const stopSimulation = async () => {
-  await fetch('/simulate/stop', { method: 'POST' });
+  await fetch('/simulate/stop', {method: 'POST'});
 };
 
 export const fetchStatisticCount = async (status_t) => {
@@ -18,6 +18,14 @@ export const fetchTimeSpending = async () => {
 
 export const fetchCards = async (status) => {
   const response = await fetch(`/statistic/cards/${status}?status_t=${status}`);
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+  return response.json();
+};
+
+export const fetchSimulationStatus = async () => {
+  const response = await fetch('/simulate/status');
   if (!response.ok) {
     throw new Error(`HTTP error! status: ${response.status}`);
   }
