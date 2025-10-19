@@ -39,10 +39,14 @@ const CollapsibleStats = () => {
       const escalatedCount = await fetchStatisticCount('escalated');
       setNeedsAttention(escalatedCount);
 
-      const timeSpending = await fetchTimeSpending();
-      const minutes = Math.floor(timeSpending / 60);
-      const seconds = Math.round(timeSpending % 60);
-      setAvgTime(`${minutes}м ${seconds}с`);
+        const timeSpending = await fetchTimeSpending();
+        if (timeSpending < 1) {
+            setAvgTime(`${(timeSpending * 1000).toFixed(0)} мс`);
+        } else {
+            const minutes = Math.floor(timeSpending / 60);
+            const seconds = (timeSpending % 60).toFixed(1);
+            setAvgTime(minutes > 0 ? `${minutes}м ${seconds}с` : `${seconds}с`);
+        }
 
       const allTickets = await fetchCards('all');
       const categoriesMap = {};
