@@ -20,10 +20,10 @@ function DashboardPage() {
     try {
       const needsAttention = await fetchCards('escalated');
       setNeedsAttentionTickets(needsAttention.map(t => ({
-        id: `#${t.dialog_id}`,
-        category: t.type,
+        id: `#${t.id}`,
+          category: t.type || 'N/A',
         summary: `Заявка по ${t.type}. Статус: ${t.status}`,
-        userRequest: `Диалог #${t.dialog_id}. Тип: ${t.type}. Статус: ${t.status}.`,
+        userRequest: `Диалог #${t.id}. Тип: ${t.type}. Статус: ${t.status}.`,
         aiAnalysis: {
           confidence: 'N/A',
           reason: 'Передано оператору',
@@ -34,17 +34,17 @@ function DashboardPage() {
 
       const inProgress = await fetchCards('active');
       setInProgressTickets(inProgress.map(t => ({
-        id: `#${t.dialog_id}`,
+        id: `#${t.id}`,
         category: t.type,
         summary: `Заявка по ${t.type}. Статус: ${t.status}`,
       })));
 
       const resolved = await fetchCards('closed');
       setResolvedTickets(resolved.map(t => ({
-        id: `#${t.dialog_id}`,
+        id: `#${t.id}`,
         category: t.type,
         summary: `Заявка по ${t.type}. Статус: ${t.status}`,
-        userRequest: `Диалог #${t.dialog_id}. Тип: ${t.type}. Статус: ${t.status}.`,
+        userRequest: `Диалог #${t.id}. Тип: ${t.type}. Статус: ${t.status}.`,
         aiAnalysis: {
           confidence: 'N/A',
           reason: 'Решено автоматически',
