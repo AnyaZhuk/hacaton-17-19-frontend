@@ -1,16 +1,25 @@
-# React + Vite
+---
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+### README для фронтенд-репозитория
 
-Currently, two official plugins are available:
+Этот README четко объясняет, что проект является частью целого и как с ним работать в контексте всей системы.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```markdown
+# Frontend-приложение для OpenMosProm
 
-## React Compiler
+Этот проект содержит React-приложение (дашборд), которое является частью комплексной системы автоматизации технической поддержки.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ⚠️ Важное замечание
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Этот проект **не предназначен для самостоятельного запуска** через `npm run dev` в отрыве от остальной системы. Фронтенд-приложение ожидает, что бэкенд-сервисы (`backend-api`, `ml-api`) уже запущены и доступны по сети, что обеспечивается общей `docker-compose.yml` конфигурацией.
+
+### Как запустить правильно?
+
+Для запуска всего комплекса, включая этот фронтенд, вам необходимо:
+1.  Перейти в корневую директорию **основного (бэкенд) репозитория**.
+2.  Выполнить команду `docker compose up --build -d` согласно инструкции в README того репозитория.
+
+Docker Compose автоматически соберет и запустит этот фронтенд вместе со всеми необходимыми бэкенд-сервисами.
+
